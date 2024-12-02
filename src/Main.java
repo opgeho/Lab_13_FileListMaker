@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Scanner;
 import java.util.ArrayList;
 
@@ -12,11 +13,13 @@ public class Main {
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
         boolean done = false;
+        boolean dirty = false;
         String menu = "";
 
         JFileChooser chooser = new JFileChooser();
-        File selectedFile;
-
+        File selectedFile = new File("default.txt");
+        Path file = selectedFile.toPath();
+        openFile(chooser);
         do{
             view();
             System.out.println("A - Add an item to the list");
@@ -24,28 +27,57 @@ public class Main {
             System.out.println("I - Insert an item into the list");
             System.out.println("V - View the list");
             System.out.println("M - Move an item");
+            System.out.println("O - Open a list file from disk");
+            System.out.println("S - Save a file to disk");
+            System.out.println("C - Clear the list");
             System.out.println("Q - Quit the program");
             menu = SafeInput.getRegExString(in,"enter menu choice", "[AaDdIiVvMmOoSsCcQq]");
             if (menu.equalsIgnoreCase("A")){
                 add(in);
+                dirty = true;
             }
             else if (menu.equalsIgnoreCase("D")){
                 delete(in);
+                dirty = true;
             }
             else if (menu.equalsIgnoreCase("I")){
                 insert(in);
+                dirty = true;
             }
             else if (menu.equalsIgnoreCase("V")){
                 view();
             }
             else if (menu.equalsIgnoreCase("M")){
                 move(in);
+                dirty = true;
+            }
+            else if (menu.equalsIgnoreCase("C")){
+                clear();
+                dirty = true;
             }
             else if (menu.equalsIgnoreCase("O")){
-                openFile(chooser);
+                if (dirty == true){
+                    System.out.println("You have unsaved work. please save.");
+                    saveFile(in);
+                    dirty = false;
+                }
+                else {
+                    openFile(chooser);
+                }
+            }
+            else if (menu.equalsIgnoreCase("S")){
+                saveFile(in);
+                dirty = false;
             }
             else if (menu.equalsIgnoreCase("Q")){
-                done = quit(in);
+                if (dirty == true){
+                    System.out.println("You have unsaved work. please save.");
+                    saveFile(in);
+                    dirty = false;
+                }
+                else {
+                    done = quit(in);
+                }
             }
 
         }while(!done);
@@ -73,11 +105,12 @@ public class Main {
 
     }
     private static void move(Scanner in){
-        int list = SafeInput.getRangedInt(in, "Enter list number to move",1,arrList.size()) - 1;
+        int list = SafeInput.getRangedInt(in, "Enter list number to move",1,arrList.size());
         int moveTo = SafeInput.getRangedInt(in, "enter list number of destination", 1, arrList.size()) - 1;
-        String item = arrList.get(list);
+        String item = arrList.get(list - 1);
+        arrList.remove(list - 1);
         arrList.add(moveTo, item);
-        arrList.remove(list);
+
     }
     private static boolean quit(Scanner in){
         boolean retVal = false;
@@ -85,14 +118,38 @@ public class Main {
         return retVal;
     }
     private static void clear(){
-        for (int i = 0; i < arrList.size(); i++){
-            arrList.remove(i);
+        arrList.clear();
+    }
+    private static void saveFile(Scanner in){
+        String fileName = "";
+        fileName = SafeInput.getNonZeroLenString(in, "Enter file name (use existing name to overwrite)");
+        File workingDirectory = new File(System.getProperty("user.dir"));
+        Path file = Paths.get(workingDirectory.getPath() + "\\src\\" + fileName + ".txt");
+
+        try
+        {
+
+            OutputStream out =
+                    new BufferedOutputStream(Files.newOutputStream(file, CREATE));
+            BufferedWriter writer =
+                    new BufferedWriter(new OutputStreamWriter(out));
+
+
+            for(String rec : arrList)
+            {
+                writer.write(rec, 0, rec.length());
+                writer.newLine();
+            }
+            writer.close();
+            System.out.println("Data file written!");
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
         }
     }
-    private static void saveFile(){
-
-    }
     private static void openFile(JFileChooser chooser){
+
         String rec = "";
         File selectedFile;
         try
@@ -126,8 +183,6 @@ public class Main {
             else  // user closed the file dialog wihtout choosing
             {
                 System.out.println("Failed to choose a file to process");
-                System.out.println("Run the program again!");
-                System.exit(0);
             }
         }  // end of TRY
         catch (FileNotFoundException e)
